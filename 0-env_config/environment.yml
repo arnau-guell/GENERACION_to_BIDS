@@ -1,4 +1,4 @@
-name: mright-env
+name: generacion-to-bids
 channels:
   - anaconda
   - conda-forge

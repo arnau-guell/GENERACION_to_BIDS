@@ -1,6 +1,6 @@
-# GENERACION_Convert_BIDS
+# GENERACION_to_BIDS
 
-GENERACION_Convert_BIDS is a standardized MRI preprocessing and conversion pipeline adapted from MRIght, available [here](https://github.com/arnau-guell/mright). This version, adapted for the Generacion project, converts the raw DICOM images to BIDS format.
+GENERACION_to_BIDS is a standardized MRI preprocessing and conversion pipeline adapted from MRIght, available [here](https://github.com/arnau-guell/mright). This version, adapted for the Generacion project, converts the raw DICOM images to BIDS format.
 
 This pipeline allows you to go from raw DICOMs directly from the scanner to BIDS-compliant data, ready for preprocessing. It's designed to be used directly from the terminal. It works both in Linux and MacOS.
 
@@ -20,7 +20,7 @@ This pipeline allows you to go from raw DICOMs directly from the scanner to BIDS
 * 
     ```bash
     conda env create -f 0-env_config/environment.yml
-    conda activate mright-env
+    conda activate generacion-to-bids
     ```
 
 ---
@@ -40,6 +40,6 @@ This pipeline allows you to go from raw DICOMs directly from the scanner to BIDS
 
 ## License 
 
-GENERACION_Convert_BIDS © PENLab, University of Barcelona.  
+GENERACION_to_BIDS © PENLab, University of Barcelona.  
 
 Please cite appropriately if using this pipeline in publications.
