@@ -17,15 +17,9 @@ def meta_create():
         empty_dict = {
                       "dicom": "",
                       "dicom_list": "",
-                      "timepoint": "",
-                      "ses": "",
                       "bids_in": "",
                       "bids_out": "",
                       "heuristic": "",
-                      "recons": "",
-                      "bold": "",
-                      "qc": "",
-                      "rename_others_list": ""
                       }
         with open(json_meta, 'a') as file:
             json.dump(empty_dict, file)
