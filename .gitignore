@@ -1,0 +1,5 @@
+meta.json
+git check-ignore -v slurm-*
+*.pyc
+.DS_Store
+*slurm-*
