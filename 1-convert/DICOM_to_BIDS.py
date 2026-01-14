@@ -39,10 +39,7 @@ def main():
     dicoms_path = meta_func("dicom", "the path to the DICOMs folder")  # Path to DICOM directories
     bids_path = meta_func("bids_in", "the path to the (shared) BIDS folder")  # Path to shared BIDS directory
     temp_bids_path = meta_func("bids_out", "the path to the temporary (local) BIDS output folder")  # Path to local BIDS directory
-    heuristic_file_path = meta_func("heuristic", "your heuristic file path") # Path to heuristic file
-
-    # Extract the numerical part of timepoint from above and format 
-    ses = "NOSESSION"  
+    heuristic_file_path = meta_func("heuristic", "your heuristic file path") # Path to heuristic file 
 
     # Dynamically load and execute a heuristic module to access configuration settings for processing
     heuristic_module_name = os.path.basename(heuristic_file_path).split('.')[0]
@@ -52,19 +49,13 @@ def main():
 
     delete_scans = module.delete_scans
     delete_events = module.delete_events
-
-    use_sessions = (ses != "NOSESSION")
     
     # List of DICOMS in input directory 
     dicoms_folders = set(list_folders(dicoms_path))
 
     # Determine subjects to process in BIDS
-    if use_sessions:
-        # ses_path = "ses-{}".format(ses)
-        # bids = [s[4:] for s in os.listdir(bids_path) if ((s[:4] == "sub-") and os.path.isdir(os.path.join(bids_path, s, ses_path)))]
-        pass # N/A, Generacion is cross-sectional
-    else:
-        bids = [s[4:] for s in os.listdir(bids_path) if ((s[:4] == "sub-"))]
+
+    bids = [s[4:] for s in os.listdir(bids_path) if ((s[:4] == "sub-"))]
 
     # Identify subjects needing processing
     todo_dicoms = {sub for sub in dicoms_folders if sub not in bids}
@@ -92,24 +83,13 @@ def main():
 
         # Overwriting: delete BIDS in conflict, convert the entire list    
         elif overwrite_bids == "Y":                                                
-            if use_sessions == True:
-                # for dicom_id in dicoms_folders:
-                #     if os.path.exists(os.path.join(bids_path, "sub-{}".format(dicom_id), ses_path)):
-                #         shutil.rmtree(os.path.join(bids_path, "sub-{}".format(dicom_id), ses_path))
-                #         print("INFO: " + os.path.join(bids_path, "sub-{}".format(dicom_id), ses_path) + " will be overwritten.")
-                #     if os.path.exists(os.path.join(bids_path, ".heudiconv", dicom_id, ses_path)):
-                #         shutil.rmtree(os.path.join(bids_path, ".heudiconv", dicom_id, ses_path))
-                #         print("INFO: " + os.path.join(bids_path, ".heudiconv", dicom_id, ses_path) + " will be overwritten.")
-                pass # N/A, Generacion is cross-sectional
-            
-            else:            
-                for dicom_id in dicoms_folders:
-                    if os.path.exists(os.path.join(bids_path, "sub-{}".format(dicom_id))):
-                        shutil.rmtree(os.path.join(bids_path, "sub-{}".format(dicom_id)))
-                        print("INFO: " + os.path.join(bids_path, "sub-{}".format(dicom_id)) + " will be overwritten.")
-                    if os.path.exists(os.path.join(bids_path, ".heudiconv", dicom_id)):
-                        shutil.rmtree(os.path.join(bids_path, ".heudiconv", dicom_id))
-                        print("INFO: " + os.path.join(bids_path, ".heudiconv", dicom_id) + " will be overwritten.")                    
+            for dicom_id in dicoms_folders:
+                if os.path.exists(os.path.join(bids_path, "sub-{}".format(dicom_id))):
+                    shutil.rmtree(os.path.join(bids_path, "sub-{}".format(dicom_id)))
+                    print("INFO: " + os.path.join(bids_path, "sub-{}".format(dicom_id)) + " will be overwritten.")
+                if os.path.exists(os.path.join(bids_path, ".heudiconv", dicom_id)):
+                    shutil.rmtree(os.path.join(bids_path, ".heudiconv", dicom_id))
+                    print("INFO: " + os.path.join(bids_path, ".heudiconv", dicom_id) + " will be overwritten.")                    
             todo_dicoms = dicoms_folders
             intersection_bids_list = set()
         
@@ -134,39 +114,16 @@ def main():
                 os.mkdir(subj_path)
             subdir_list = [subdir for subdir in os.listdir(subj_path) if os.path.isdir(os.path.join(subj_path, subdir))]
 
-            # For longitudinal studies
-            # Heuristic must have keys like t1w=create_key('sub-{subject}/{session}/anat/sub-{subject}_{session}_run-{item:02d}_T1w')
-            if use_sessions:
-                # # ses- check: Subj folder must be empty or contain ONLY ses- subfolders
-                # if subdir_list:
-                #     subdir_check = [ses_subdir for ses_subdir in subdir_list if "ses-" in ses_subdir[:4]]
-                #     if subdir_check != subdir_list:
-                #         with open(os.path.join(temp_bids_path, "error_heudiconv.txt"), "a") as f:
-                #             print(f"WARNING: Subject {subj} has been skipped due to session hierarchy issues. Logged in error_heudiconv.txt")
-                #             f.write(str(datetime.datetime.now()) + "\t" + subj + " session hierarchy issue\n")
-                #         continue
-                # if ses_path not in os.listdir(subj_path):
-                #     print(f"Starting subject {subj} conversion")
-                #     command = "heudiconv -d "+ os.path.join(dicoms_path, timepoint, "{subject}", "*", "*") + " -o "+ temp_bids_path +" -f "+ heuristic_file_path +" -s "+ subj + " -ss "+ ses +" -c dcm2niix -b --minmeta --overwrite --grouping custom"
-                #     os.system(command)
-                # else:
-                #     with open(os.path.join(temp_bids_path, "error_heudiconv.txt"), "a") as f:
-                #         print(f"WARNING: Subject {subj} was previously processed and will be skipped. Logged in error_heudiconv.txt")
-                #         f.write(str(datetime.datetime.now()) + "\t" + subj + " already processed\n")
-                pass # N/A, Generacion is cross-sectional
-            
-            # For non-longitudinal studies
             # Heuristic must have keys like t1w=create_key('sub-{subject}/anat/sub-{subject}_run-{item:02d}_T1w')        
+            # check: Subj folder must be empty
+            if not subdir_list:
+                print(f"Starting subject {subj} conversion")
+                command = "heudiconv -d "+ os.path.join(dicoms_path, "{subject}", "*", "*", "*", "*", "*") + " -o "+ temp_bids_path +" -f "+ heuristic_file_path +" -s "+ subj +" -c dcm2niix -b --minmeta --overwrite --grouping custom"
+                os.system(command)
             else:
-                # check: Subj folder must be empty
-                if not subdir_list:
-                    print(f"Starting subject {subj} conversion")
-                    command = "heudiconv -d "+ os.path.join(dicoms_path, "{subject}", "*", "*", "*", "*", "*") + " -o "+ temp_bids_path +" -f "+ heuristic_file_path +" -s "+ subj +" -c dcm2niix -b --minmeta --overwrite --grouping custom"
-                    os.system(command)
-                else:
-                    with open(os.path.join(temp_bids_path, "error_heudiconv.txt"), "a") as f:
-                        print(f"WARNING: Subject {subj} was previously processed and will be skipped. Logged in error_heudiconv.txt")
-                        f.write(str(datetime.datetime.now()) + "\t" + subj + " already processed\n")
+                with open(os.path.join(temp_bids_path, "error_heudiconv.txt"), "a") as f:
+                    print(f"WARNING: Subject {subj} was previously processed and will be skipped. Logged in error_heudiconv.txt")
+                    f.write(str(datetime.datetime.now()) + "\t" + subj + " already processed\n")
         
         except Exception as e:
             try:
@@ -190,13 +147,12 @@ def main():
                     f.write("\nerror_heudiconv.txt\n")   
 
     # Delete scans.tsv and events.tsv optional files                  
-    # ses_path = "ses-*" if use_sessions else ""
-    ses_path =  ""
-    subses_path = os.path.join(temp_bids_path, "sub-*", ses_path)
 
-    if len(list(Path(temp_bids_path).glob(os.path.join("sub-*", ses_path, "*scans*")))) > 0:
+    sub_wildcard_path = os.path.join(temp_bids_path, "sub-*")
+
+    if len(list(Path(temp_bids_path).glob(os.path.join("sub-*", "*scans*")))) > 0:
         if delete_scans == True:
-            cmd_scans = "rm " + os.path.join(subses_path, "*_scans.tsv")
+            cmd_scans = "rm " + os.path.join(sub_wildcard_path, "*_scans.tsv")
             os.system(cmd_scans)
             print("INFO: Deleting all *_scans.tsv files from each subject[/session] folder")
         elif delete_scans == False:
@@ -204,9 +160,9 @@ def main():
         else:
             print("WARNING: Invalid value for 'delete_scans' variable in heuristics file. No deletion of *_scans.tsv files was done.")
 
-    if len(list(Path(temp_bids_path).glob(os.path.join("sub-*", ses_path, "func", "*_events.tsv")))) > 0:
+    if len(list(Path(temp_bids_path).glob(os.path.join("sub-*", "func", "*_events.tsv")))) > 0:
         if delete_events == True:
-            cmd_events = "rm " + os.path.join(subses_path, "func", "*_events.tsv")
+            cmd_events = "rm " + os.path.join(sub_wildcard_path, "func", "*_events.tsv")
             os.system(cmd_events)
             print("INFO: Deleting all *_events.tsv files from each subject[/session]/func folder")
         elif delete_events == False:
