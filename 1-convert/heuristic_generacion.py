@@ -35,7 +35,7 @@ def infotodict(seqinfo):
     rest_bold=create_key('sub-{subject}/func/sub-{subject}_task-rest_run-{item:02d}_bold')
     pain_bold=create_key('sub-{subject}/func/sub-{subject}_task-pain_run-{item:02d}_bold')
     multisens_bold=create_key('sub-{subject}/func/sub-{subject}_task-multisens_run-{item:02d}_bold')
-    selfvowel_bold=create_key('sub-{subject}/func/sub-{subject}_task-SelfVowel_run-{item:02d}_bold')
+    selfvowel_bold=create_key('sub-{subject}/func/sub-{subject}_task-selfvowel_run-{item:02d}_bold')
     nback_bold=create_key('sub-{subject}/func/sub-{subject}_task-nback_run-{item:02d}_bold')
 
     dwi=create_key('sub-{subject}/dwi/sub-{subject}_dir-AP_run-{item:02d}_dwi')
