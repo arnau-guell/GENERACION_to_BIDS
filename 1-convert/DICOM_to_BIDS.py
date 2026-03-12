@@ -11,6 +11,11 @@ import shutil
 import re
 from pathlib import Path
 
+# Import meta functions
+root_dir = os.path.dirname(os.path.dirname(__file__))
+sys.path.append(root_dir)
+from meta import meta_func, meta_create
+
 # Function to ensure the directory exists before writing to a file
 def ensure_directory_for_file(file_path):
     """Ensure directory exists before writing to a file"""
@@ -28,28 +33,7 @@ def list_folders(path):
     
     return [name for name in os.listdir(path) if os.path.isdir(os.path.join(path, name))]
 
-def main():
-    # Import meta functions
-    root_dir = os.path.dirname(os.path.dirname(__file__))
-    sys.path.append(root_dir)
-    from meta import meta_func, meta_create
-
-    # Input paths
-    meta_create()
-    dicoms_path = meta_func("dicom", "the path to the DICOMs folder")  # Path to DICOM directories
-    bids_path = meta_func("bids_in", "the path to the (shared) BIDS folder")  # Path to shared BIDS directory
-    temp_bids_path = meta_func("bids_out", "the path to the temporary (local) BIDS output folder")  # Path to local BIDS directory
-    heuristic_file_path = meta_func("heuristic", "your heuristic file path") # Path to heuristic file 
-
-    # Dynamically load and execute a heuristic module to access configuration settings for processing
-    heuristic_module_name = os.path.basename(heuristic_file_path).split('.')[0]
-    spec = importlib.util.spec_from_file_location(heuristic_module_name, heuristic_file_path)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-
-    delete_scans = module.delete_scans
-    delete_events = module.delete_events
-    
+def generate_dicom_sub_list(dicoms_path, bids_path):
     # List of DICOMS in input directory 
     dicoms_folders = set(list_folders(dicoms_path))
 
@@ -99,7 +83,30 @@ def main():
     # Print the list of subjects to be processed
     print("Subjects to be processed:", todo_dicoms)
 
-    # Heudiconv run
+    return todo_dicoms
+
+def delete_scans_events(base_path, glob_pattern, delete_flag, info_msg, warn_name):
+    """Delete scans.tsv and events.tsv optional files"""
+    files = list(Path(base_path).glob(glob_pattern))
+
+    if not files:
+        return
+
+    if delete_flag is True:
+        for f in files:
+            f.unlink()
+        print(f"INFO: {info_msg}")
+
+    elif delete_flag is False:
+        print(f"INFO: {warn_name} files were left in place")
+
+    else:
+        print(
+            f"WARNING: Invalid value for '{warn_name}' variable in heuristics file. "
+            f"No deletion of {warn_name} files was done."
+        )
+
+def run_heudiconv(todo_dicoms, temp_bids_path, dicoms_path, heuristic_file_path):
     for subj in todo_dicoms:
         try:
             subj_clean = re.sub(r'[^a-zA-Z0-9]', '', subj)
@@ -135,40 +142,55 @@ def main():
                 print(f"ERROR: Could not log error for subject {subj}: {err}")
             continue
 
+def main():
+    # Input paths
+    meta_create()
+    dicoms_dir = meta_func("dicom", "the path to the DICOMs folder")  # Path to DICOM directories
+    bids_dir = meta_func("bids_in", "the path to the (shared) BIDS folder")  # Path to shared BIDS directory
+    temp_bids_dir = meta_func("bids_out", "the path to the temporary (local) BIDS output folder")  # Path to local BIDS directory
+    heuristic_fn = meta_func("heuristic", "your heuristic file path") # Path to heuristic file 
+
+    # Dynamically load and execute a heuristic module to access configuration settings for processing
+    heuristic_module_name = os.path.basename(heuristic_fn).split('.')[0]
+    spec = importlib.util.spec_from_file_location(heuristic_module_name, heuristic_fn)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+
+    delete_scans = module.delete_scans
+    delete_events = module.delete_events
+    
+    todo_dicoms = generate_dicom_sub_list(dicoms_dir, bids_dir)
+
+    # Heudiconv run
+    run_heudiconv(todo_dicoms, temp_bids_dir, dicoms_dir, heuristic_fn)
+
     # .bidsignore file in case error_heudiconv.txt is created
-    if os.path.exists(os.path.join(temp_bids_path, "error_heudiconv.txt")):
-        if not os.path.exists(os.path.join(temp_bids_path, ".bidsignore")):
-            with open(os.path.join(temp_bids_path, ".bidsignore"), "a") as f:
+    if os.path.exists(os.path.join(temp_bids_dir, "error_heudiconv.txt")):
+        if not os.path.exists(os.path.join(temp_bids_dir, ".bidsignore")):
+            with open(os.path.join(temp_bids_dir, ".bidsignore"), "a") as f:
                 f.write("error_heudiconv.txt\n")
         else:
-            with open(os.path.join(temp_bids_path, ".bidsignore"), "r+") as f:
+            with open(os.path.join(temp_bids_dir, ".bidsignore"), "r+") as f:
                 lines = {line.rstrip() for line in f}
                 if "error_heudiconv.txt" not in lines:
                     f.write("\nerror_heudiconv.txt\n")   
 
-    # Delete scans.tsv and events.tsv optional files                  
+    # Delete *_scans.tsv and *_events.tsv if needed
+    delete_scans_events(
+        temp_bids_dir,
+        "sub-*/*scans*",
+        delete_scans,
+        "Deleting all *_scans.tsv files from each subject[/session] folder",
+        "*_scans.tsv"
+    )
 
-    sub_wildcard_path = os.path.join(temp_bids_path, "sub-*")
-
-    if len(list(Path(temp_bids_path).glob(os.path.join("sub-*", "*scans*")))) > 0:
-        if delete_scans == True:
-            cmd_scans = "rm " + os.path.join(sub_wildcard_path, "*_scans.tsv")
-            os.system(cmd_scans)
-            print("INFO: Deleting all *_scans.tsv files from each subject[/session] folder")
-        elif delete_scans == False:
-            print("INFO: *_scans.tsv files were left in each subject[/session] folder")
-        else:
-            print("WARNING: Invalid value for 'delete_scans' variable in heuristics file. No deletion of *_scans.tsv files was done.")
-
-    if len(list(Path(temp_bids_path).glob(os.path.join("sub-*", "func", "*_events.tsv")))) > 0:
-        if delete_events == True:
-            cmd_events = "rm " + os.path.join(sub_wildcard_path, "func", "*_events.tsv")
-            os.system(cmd_events)
-            print("INFO: Deleting all *_events.tsv files from each subject[/session]/func folder")
-        elif delete_events == False:
-            print("INFO: *_events.tsv files were left in each subject[/session]/func folder")
-        else:
-            print("WARNING: Invalid value for 'delete_events' variable in heuristics file. No deletion of *_events.tsv files was done.")
+    delete_scans_events(
+        temp_bids_dir,
+        "sub-*/func/*_events.tsv",
+        delete_events,
+        "Deleting all *_events.tsv files from each subject[/session]/func folder",
+        "*_events.tsv"
+    )
 
 if __name__ == '__main__':
     main()
