@@ -22,8 +22,8 @@ def meta_create():
         empty_dict = {
                       "dicom": "",
                       "dicom_list": "",
-                      "bids_in": "",
-                      "bids_out": "",
+                      "bids": "",
+                      "bids_ws": "",
                       "heuristic": "",
                       }
         with open(json_meta, 'a') as file:
@@ -196,8 +196,8 @@ def main():
     # Input paths
     meta_create()
     dicoms_dir = meta_func("dicom", "the path to the DICOMs folder")  # Path to DICOM directories
-    bids_dir = meta_func("bids_in", "the path to the archive BIDS folder")  # Path to shared BIDS directory
-    temp_bids_dir = meta_func("bids_out", "the path to the temporary workspace BIDS folder")  # Path to local BIDS directory
+    bids_dir = meta_func("bids", "the path to the archive BIDS folder")  # Path to shared BIDS directory
+    temp_bids_dir = meta_func("bids_ws", "the path to the temporary workspace BIDS folder")  # Path to local BIDS directory
     heuristic_fn = meta_func("heuristic", "your heuristic file path") # Path to heuristic file 
 
     # Dynamically load and execute a heuristic module to access configuration settings for processing

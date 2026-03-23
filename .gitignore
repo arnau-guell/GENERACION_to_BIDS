@@ -1,4 +1,4 @@
-meta.json
+output/meta.json
 git check-ignore -v slurm-*
 *.pyc
 .DS_Store
