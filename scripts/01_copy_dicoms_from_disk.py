@@ -92,7 +92,7 @@ def main():
     meta_create()
     local_username = meta_func("local_user", "your user name in the local machine")     # User name on the local machine
     password = getpass.getpass("Please, enter your local machine user password: ")
-    local_dicoms_dir = meta_func("dicom", "the path to the DICOMs folder in the local disk")  # Path to DICOM directories in the local disk
+    local_dicoms_dir = meta_func("local_dicom", "the path to the DICOMs folder in the local disk")  # Path to DICOM directories in the local disk
     dicoms_dir = meta_func("dicom", "the path to the temporary workspace DICOMs folder")  # Path to DICOM directories
     temp_bids_dir = meta_func("bids_ws", "the path to the temporary workspace BIDS folder")  # Path to local BIDS directory
     bids_dir = meta_func("bids", "the path to the archive BIDS folder")  # Path to shared BIDS directory
@@ -107,7 +107,7 @@ def main():
 
     sftp.close()
     ssh.close()
-    
+
     todo_dicoms = {
                 sub for sub in subs_in_disk
                 if sub not in dicoms_dir
