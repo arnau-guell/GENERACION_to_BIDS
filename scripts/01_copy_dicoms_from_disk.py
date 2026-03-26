@@ -7,6 +7,7 @@ import os
 import json
 import subprocess
 import re
+import paramiko
 
 # These functions generate and modify the meta.json file that stores the session paths
 root_dir = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
@@ -76,11 +77,11 @@ def copy_files(dicom_list, local_username, local_dicoms_dir, dicoms_dir):
         print("ERROR: No ssh connection detected.")
         return
     dicom_list = sorted(dicom_list)
-    print(f"This subs will be copied: {dicom_list}")
+    print(f"These subs will be copied: {dicom_list}")
     for dicom_sub in dicom_list:
         dicom_path = os.path.join(local_dicoms_dir, dicom_sub)
         print(f"INFO: Copying sub {dicom_sub} from {local_dicoms_dir} to {dicoms_dir}")
-        subprocess.run(f"rsync -avh --progress {local_username}@{local_ip}:{dicom_path} {dicoms_dir}")   
+        subprocess.run(f"rsync -avh --progress --partial --checksum {local_username}@{local_ip}:{dicom_path} {dicoms_dir}")   
 
 def main():
     # Input paths
