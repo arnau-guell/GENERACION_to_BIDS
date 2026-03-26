@@ -10,8 +10,8 @@ from pathlib import Path
 import pandas as pd
 
 spec = importlib.util.spec_from_file_location(
-    "DICOM_to_BIDS",
-    os.path.join(os.path.dirname(os.path.dirname(__file__)), "02_DICOM_to_BIDS.py")
+    "copy_dicoms_from_disk",
+    os.path.join(os.path.dirname(os.path.dirname(__file__)), "01_copy_dicoms_from_disk.py")
 )
 mod = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(mod)

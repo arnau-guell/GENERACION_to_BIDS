@@ -4,7 +4,6 @@
 ############################################
 
 import os
-import json
 import importlib.util
 import datetime
 import shutil
@@ -12,69 +11,74 @@ import re
 from pathlib import Path
 
 # Import meta functions
-root_dir = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 
-json_meta = os.path.join(root_dir, "output", "meta.json")
+spec = importlib.util.spec_from_file_location(
+    "copy_dicoms_from_disk",
+    os.path.join(os.path.dirname(os.path.dirname(__file__)), "01_copy_dicoms_from_disk.py")
+)
+mod = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(mod)
 
-def meta_create():
-    '''This function creates an empty meta.json file in the output folder'''
-    if os.path.isfile(json_meta) == False:
-        empty_dict = {
-                      "dicom": "",
-                      "dicom_list": "",
-                      "bids": "",
-                      "bids_ws": "",
-                      "heuristic": "",
-                      }
-        with open(json_meta, 'a') as file:
-            json.dump(empty_dict, file)
-            
+meta_create = mod.meta_create
+meta_func = mod.meta_func
+list_folders = mod.list_folders
 
-def meta_func(var, msg, msg2="", ispath=True):
-    '''This function collects, updates and returns all the user-inputed data needed
-    for the conversion to BIDS. This data is stored in outputs/meta.json'''    
-    with open(json_meta, 'r') as file:
-        data = json.load(file)
-    edit_data = False
-    if var not in data:
-        data[var] = ""
-    if data[var] != "":
-        value_ok = False
-        while value_ok == False:
-            value_check = input("Is this {}?:\n{}\n(Y/N) ".format(msg, data[var])).upper()
-            if value_check == 'Y':
-                value_ok = True
-            elif value_check == 'N':
-                data[var] = input(r"Please, enter {}{}: ".format(msg, msg2))
-                if ispath == True:
-                    data[var] = os.path.normpath(data[var]).strip(" '") # remove '' from string
-                edit_data = True
-                value_ok = True
-            else:
-                print("Please, enter a valid response.")
-    else:
-        data[var] = os.path.normpath(input(r"Please, enter {}{}: ".format(msg, msg2)).strip(" '"))
-        edit_data = True
-    if edit_data == True:
-        with open(json_meta, 'w') as file:
-            json.dump(data, file)
-    return data[var]
+def overlap_dicom_bids(dicom_list, bids_path, bids_list, msg=""):
+    """This function checks if there is any subject overlap between the DICOM source folder
+    with the temporary and archive BIDS directories. Asks if an overwriting is desired."""
 
-# Function to list folders in a given directory
-def list_folders(path):
-    """Return a list of folder (subjects) names in the given directory."""
-    if not os.path.exists(path):
-        print(f"Error: The path '{path}' does not exist.")
-        return []
+    # Identify subjects that do not need processing
+    intersection_bids_list = dicom_list.intersection(bids_list)
     
-    return [name for name in os.listdir(path) if os.path.isdir(os.path.join(path, name))]
+    # If there are no subjects in both dicoms_folders and bids_path
+    if not intersection_bids_list:                                             
+        todo_dicoms = dicom_list
+        return todo_dicoms
 
-def generate_dicom_sub_list(dicoms_path, bids_path):
+    # If there are subjects in both dicoms_folders and bids_path
+    else:
+        while True:
+            overwrite_bids = input(f"{intersection_bids_list} already in BIDS {msg}directory, overwrite? (Y/N) ").upper()
+
+            # No overwriting: todo_dicoms = dicoms in list not in bids_path
+            if overwrite_bids == "N":                                                 
+                todo_dicoms = {
+                                sub for sub in dicom_list
+                                if re.sub(r'[^a-zA-Z0-9]', '', sub) not in bids_list
+                                }
+                print("Skipped overwriting of " + str(intersection_bids_list) + ".")
+                return todo_dicoms
+
+            # Overwriting: delete BIDS in conflict, convert the entire list    
+            elif overwrite_bids == "Y":                                                
+                for dicom_id in dicom_list:
+                    sub_path = os.path.join(bids_path, f"sub-{dicom_id}")
+                    heu_path = os.path.join(bids_path, ".heudiconv", dicom_id)
+
+                    if os.path.exists(sub_path):
+                        shutil.rmtree(sub_path)
+                        print(f"INFO: {sub_path} will be overwritten.")
+
+                    if os.path.exists(heu_path):
+                        shutil.rmtree(heu_path)
+                        print(f"INFO: {heu_path} will be overwritten.")
+
+                todo_dicoms = dicom_list
+                return todo_dicoms
+            
+            else:
+                print("Please, enter a valid response. (Y/N)\n") 
+
+def generate_dicom_sub_list(dicoms_path, bids_path, temp_bids_path):
+    """This function asks if you want to convert a custom set of subs, otherwise a sub list is automatically generated"""
     # List of DICOMS in input directory 
     dicoms_folders = set(list_folders(dicoms_path))
 
-    # Determine subjects to process in BIDS
+    # Determine processed subs in BIDS (archive)
     bids = [s[4:] for s in os.listdir(bids_path) if ((s[:4] == "sub-"))]
+
+    # Determine processed subs in BIDS (workspace)
+    bids_temp = [s[4:] for s in os.listdir(temp_bids_path) if ((s[:4] == "sub-"))]
 
     # Automatic or manual list
     manual_list = input("Do you want to specifically convert a custom set of subs? Otherwise, sub list will be autogenerated from input and output folders. (Y/N) ").upper()
@@ -82,9 +86,11 @@ def generate_dicom_sub_list(dicoms_path, bids_path):
     if manual_list == "N":
 
         # Identify subjects needing processing
-        todo_dicoms = {sub for sub in dicoms_folders
+        todo_dicoms = {
+                        sub for sub in dicoms_folders
                         if re.sub(r'[^a-zA-Z0-9]', '', sub) not in bids
-                        }
+                        and re.sub(r'[^a-zA-Z0-9]', '', sub) not in bids_temp
+                      }
 
     elif manual_list == "Y":
 
@@ -96,45 +102,9 @@ def generate_dicom_sub_list(dicoms_path, bids_path):
                 if line.strip()
             }
         
-        # Identify subjects that do not need processing
-        intersection_bids_list = dicoms_folders.intersection(bids)
-        
-        # If there are no subjects in both dicoms_folders and bids_path
-        if not intersection_bids_list:                                             
-            todo_dicoms = dicoms_folders
-
-        # If there are subjects in both dicoms_folders and bids_path
-        else:
-            while True:
-                overwrite_bids = input(f"{intersection_bids_list} already in BIDS directory, overwrite? (Y/N) ").upper()
-
-                # No overwriting: todo_dicoms = dicoms in list not in bids_path
-                if overwrite_bids == "N":                                                 
-                    todo_dicoms = {sub for sub in dicoms_folders
-                                    if re.sub(r'[^a-zA-Z0-9]', '', sub) not in bids
-                                    }
-                    print("Skipped overwriting of " + str(intersection_bids_list) + ".")
-                    break
-
-                # Overwriting: delete BIDS in conflict, convert the entire list    
-                elif overwrite_bids == "Y":                                                
-                    for dicom_id in dicoms_folders:
-                        sub_path = os.path.join(bids_path, f"sub-{dicom_id}")
-                        heu_path = os.path.join(bids_path, ".heudiconv", dicom_id)
-
-                        if os.path.exists(sub_path):
-                            shutil.rmtree(sub_path)
-                            print(f"INFO: {sub_path} will be overwritten.")
-
-                        if os.path.exists(heu_path):
-                            shutil.rmtree(heu_path)
-                            print(f"INFO: {heu_path} will be overwritten.")
-
-                    todo_dicoms = dicoms_folders
-                    break
-                
-                else:
-                    print("Please, enter a valid response. (Y/N)\n") 
+        dicoms_overlap1 = overlap_dicom_bids(dicoms_folders, bids_path, bids)
+        dicoms_overlap2 = overlap_dicom_bids(dicoms_overlap1, bids_path, bids_temp, msg="temporary ")
+        todo_dicoms = dicoms_overlap2
 
     # Print the list of subjects to be processed
     print("Subjects to be processed:", todo_dicoms)
@@ -209,7 +179,7 @@ def main():
     delete_scans = module.delete_scans
     delete_events = module.delete_events
     
-    todo_dicoms = generate_dicom_sub_list(dicoms_dir, bids_dir)
+    todo_dicoms = generate_dicom_sub_list(dicoms_dir, bids_dir, temp_bids_dir)
 
     # Heudiconv run
     run_heudiconv(todo_dicoms, temp_bids_dir, dicoms_dir, heuristic_fn)

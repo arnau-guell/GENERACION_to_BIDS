@@ -15,26 +15,44 @@ This pipeline allows you to go from raw DICOMs directly from the scanner to BIDS
 
 ## Step-by-Step Workflow
 
-### Install the virtual environment
+### 0. Install the virtual environment
 
 * 
     ```bash
-    conda env create -f 0-env_config/environment.yml
+    conda env create -f scripts/00_environment.yml
     conda activate generacion-to-bids
     ```
 
 ---
 
-### 1. Convert to BIDS
+### 1. Copy DICOM files from the hard disk to the workstation
 
 * 
     ```bash
-    python 1-convert/DICOM_to_BIDS.py
+    python scripts/01_copy_dicoms_from_disk.py
     ```
 
-    **Prompts for:** Path to DICOM directory, path to shared BIDS directory (for determining subjects who have already been processed), path to local (temporary) BIDS output directory, path to project heuristic file (i.e., `1-convert/heuristic_generacion.py`).
+---
+
+### 2. Convert to BIDS
+
+* 
+    ```bash
+    python scripts/02_DICOM_to_BIDS.py
+    ```
+
+    **Prompts for:** Path to DICOM directory, path to shared BIDS directory (for determining subjects who have already been processed), path to local (temporary) BIDS output directory, path to project heuristic file (i.e., `scripts/02b_heuristic_generacion.py`).
 
     **Output:** Creates a BIDS-compliant dataset in the specified temporary output directory.
+
+* 
+    ```bash
+    python scripts/03_move_and_merge.py
+    ```
+
+    **Prompts for:** Path to temporary BIDS output directory, path to shared BIDS destination directory.
+
+    **Output:** Moves the BIDS compliant data from a temporary directory to a shared destination directory.
 
 ---
 
