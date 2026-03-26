@@ -89,7 +89,11 @@ def copy_files(dicom_list, local_username, local_dicoms_dir, dicoms_dir, local_i
         sep_dicompath = '\\' if '\\' in local_dicoms_dir and '/' not in local_dicoms_dir else '/'
         dicom_path = local_dicoms_dir.rstrip(sep_dicompath) + sep_dicompath + dicom_sub
         print(f"INFO: Copying sub {dicom_sub} from {local_dicoms_dir} to {dicoms_dir}")
-        subprocess.run(f"rsync -avh --progress --partial --checksum {local_username}@{local_ip}:{dicom_path} {dicoms_dir}")   
+        subprocess.run([
+                            "rsync", "-avh", "--progress", "--partial", "--checksum",
+                            f"{local_username}@{local_ip}:{dicom_path}",
+                            {dicoms_dir}
+                        ])
 
 def main():
     # Input paths
