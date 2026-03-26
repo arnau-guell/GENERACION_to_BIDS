@@ -73,13 +73,16 @@ def list_folders_sftp(sftp, path):
 
     return [entry.filename for entry in entries if stat.S_ISDIR(entry.st_mode)]
 
-def copy_files(dicom_list, local_username, local_dicoms_dir, dicoms_dir):
+def get_local_ip():
     # get IP address from SSH
     try:
         local_ip = os.environ.get("SSH_CLIENT").split()[0]
+        return local_ip
     except:
         print("ERROR: No ssh connection detected.")
         return
+
+def copy_files(dicom_list, local_username, local_dicoms_dir, dicoms_dir, local_ip):
     dicom_list = sorted(dicom_list)
     print(f"These subs will be copied: {dicom_list}")
     for dicom_sub in dicom_list:
@@ -97,9 +100,10 @@ def main():
     temp_bids_dir = meta_func("bids_ws", "the path to the temporary workspace BIDS folder")  # Path to local BIDS directory
     bids_dir = meta_func("bids", "the path to the archive BIDS folder")  # Path to shared BIDS directory
 
+    local_ip = get_local_ip()
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    ssh.connect('remote_host', username='user', password=password)
+    ssh.connect(local_ip, username=local_username, password=password)
 
     sftp = ssh.open_sftp()
 
@@ -115,7 +119,7 @@ def main():
                 and re.sub(r'[^a-zA-Z0-9]', '', sub) not in temp_bids_dir
                 }
     
-    copy_files(todo_dicoms, local_username, local_dicoms_dir, dicoms_dir)
+    copy_files(todo_dicoms, local_username, local_dicoms_dir, dicoms_dir, local_ip)
 
 if __name__ == '__main__':
     main()
