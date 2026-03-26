@@ -21,7 +21,14 @@ spec.loader.exec_module(mod)
 
 meta_create = mod.meta_create
 meta_func = mod.meta_func
-list_folders = mod.list_folders
+
+def list_folders(path):
+    """Return a list of folder (subjects) names in the given directory."""
+    if not os.path.exists(path):
+        print(f"Error: The path '{path}' does not exist.")
+        return []
+    
+    return [name for name in os.listdir(path) if os.path.isdir(os.path.join(path, name))]
 
 def overlap_dicom_bids(dicom_list, bids_path, bids_list, msg=""):
     """This function checks if there is any subject overlap between the DICOM source folder
@@ -165,7 +172,7 @@ def run_heudiconv(todo_dicoms, temp_bids_path, dicoms_path, heuristic_file_path)
 def main():
     # Input paths
     meta_create()
-    dicoms_dir = meta_func("dicom", "the path to the DICOMs folder")  # Path to DICOM directories
+    dicoms_dir = meta_func("dicom", "the path to the temporary workspace DICOMs folder")  # Path to DICOM directories
     bids_dir = meta_func("bids", "the path to the archive BIDS folder")  # Path to shared BIDS directory
     temp_bids_dir = meta_func("bids_ws", "the path to the temporary workspace BIDS folder")  # Path to local BIDS directory
     heuristic_fn = meta_func("heuristic", "your heuristic file path") # Path to heuristic file 

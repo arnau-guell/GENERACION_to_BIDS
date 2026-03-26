@@ -8,6 +8,8 @@ import json
 import subprocess
 import re
 import paramiko
+import getpass
+import stat
 
 # These functions generate and modify the meta.json file that stores the session paths
 root_dir = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
@@ -61,13 +63,15 @@ def meta_func(var, msg, msg2="", ispath=True):
     return data[var]
 
 # Function to list folders in a given directory
-def list_folders(path):
-    """Return a list of folder (subjects) names in the given directory."""
-    if not os.path.exists(path):
+def list_folders_sftp(sftp, path):
+    """Return a list of folder (subjects) names in the given remote directory."""
+    try:
+        entries = sftp.listdir_attr(path)
+    except FileNotFoundError:
         print(f"Error: The path '{path}' does not exist.")
         return []
-    
-    return [name for name in os.listdir(path) if os.path.isdir(os.path.join(path, name))]
+
+    return [entry.filename for entry in entries if stat.S_ISDIR(entry.st_mode)]
 
 def copy_files(dicom_list, local_username, local_dicoms_dir, dicoms_dir):
     # get IP address from SSH
@@ -87,13 +91,23 @@ def main():
     # Input paths
     meta_create()
     local_username = meta_func("local_user", "your user name in the local machine")     # User name on the local machine
+    password = getpass.getpass("Please, enter your local machine user password: ")
     local_dicoms_dir = meta_func("dicom", "the path to the DICOMs folder in the local disk")  # Path to DICOM directories in the local disk
     dicoms_dir = meta_func("dicom", "the path to the temporary workspace DICOMs folder")  # Path to DICOM directories
     temp_bids_dir = meta_func("bids_ws", "the path to the temporary workspace BIDS folder")  # Path to local BIDS directory
     bids_dir = meta_func("bids", "the path to the archive BIDS folder")  # Path to shared BIDS directory
 
-    subs_in_disk = list_folders(local_dicoms_dir)
+    ssh = paramiko.SSHClient()
+    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    ssh.connect('remote_host', username='user', password=password)
 
+    sftp = ssh.open_sftp()
+
+    subs_in_disk = list_folders_sftp(sftp, local_dicoms_dir)
+
+    sftp.close()
+    ssh.close()
+    
     todo_dicoms = {
                 sub for sub in subs_in_disk
                 if sub not in dicoms_dir
