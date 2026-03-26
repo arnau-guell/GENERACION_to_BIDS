@@ -92,7 +92,7 @@ def copy_files(dicom_list, local_username, local_dicoms_dir, dicoms_dir, local_i
         subprocess.run([
                             "rsync", "-avh", "--progress", "--partial", "--checksum",
                             f"{local_username}@{local_ip}:{dicom_path}",
-                            {dicoms_dir}
+                            f"{dicoms_dir}"
                         ])
 
 def main():
