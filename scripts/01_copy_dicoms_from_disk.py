@@ -82,18 +82,42 @@ def get_local_ip():
         print("ERROR: No ssh connection detected.")
         return
 
-def copy_files(dicom_list, local_username, local_dicoms_dir, dicoms_dir, local_ip):
+def sftp_recursive_copy(sftp, src_path, dst_path):
+    """Recursively copy a directory from the local machine to this workstation via SFTP."""
+    os.makedirs(dst_path, exist_ok=True)
+    for entry in sftp.listdir_attr(src_path):
+        src_entry = src_path + '/' + entry.filename
+        dst_entry = os.path.join(dst_path, entry.filename)
+        if stat.S_ISDIR(entry.st_mode):
+            sftp_recursive_copy(sftp, src_entry, dst_entry)
+        else:
+            size = entry.st_size
+            print(f"  Copying {entry.filename} ({size / 1024 / 1024:.1f} MB)...")
+            def progress(transferred, total, filename=entry.filename):
+                pct = (transferred / total) * 100
+                print(f"  {filename}: {pct:.1f}%", end='\r')
+            sftp.get(src_entry, dst_entry, callback=progress)
+            print()
+
+def copy_files(sftp, dicom_list, src_dicoms_dir, dst_dicoms_dir):
+    """
+    Copy DICOM subject folders from the local machine (src)
+    to this remote workstation (dst) via SFTP.
+    Script runs on the remote workstation, connecting back to the local machine.
+    Works regardless of local OS (Windows, Linux, Mac).
+    """
     dicom_list = sorted(dicom_list)
     print(f"These subs will be copied: {dicom_list}")
+
+    # Normalize to forward slashes for SFTP regardless of src OS
+    src_base = src_dicoms_dir.replace('\\', '/').rstrip('/')
+
     for dicom_sub in dicom_list:
-        sep_dicompath = '\\' if '\\' in local_dicoms_dir and '/' not in local_dicoms_dir else '/'
-        dicom_path = local_dicoms_dir.rstrip(sep_dicompath) + sep_dicompath + dicom_sub
-        print(f"INFO: Copying sub {dicom_sub} from {local_dicoms_dir} to {dicoms_dir}")
-        subprocess.run([
-                            "rsync", "-avh", "--progress", "--partial", "--checksum",
-                            f"{local_username}@{local_ip}:{dicom_path}",
-                            f"{dicoms_dir}"
-                        ])
+        src_path = f"{src_base}/{dicom_sub}"
+        dst_path = os.path.join(dst_dicoms_dir, dicom_sub)
+        print(f"INFO: Copying sub {dicom_sub} from local {src_path} to remote {dst_path}")
+        sftp_recursive_copy(sftp, src_path, dst_path)
+        print(f"INFO: Done copying {dicom_sub}")
 
 def main():
     # Input paths
@@ -114,9 +138,6 @@ def main():
 
     subs_in_disk = list_folders_sftp(sftp, local_dicoms_dir)
 
-    sftp.close()
-    ssh.close()
-
     todo_dicoms = {
                 sub for sub in subs_in_disk
                 if sub not in dicoms_dir
@@ -124,7 +145,10 @@ def main():
                 and re.sub(r'[^a-zA-Z0-9]', '', sub) not in temp_bids_dir
                 }
     
-    copy_files(todo_dicoms, local_username, local_dicoms_dir, dicoms_dir, local_ip)
+    copy_files(sftp, todo_dicoms, local_dicoms_dir, dicoms_dir)
+
+    sftp.close()
+    ssh.close()
 
 if __name__ == '__main__':
     main()
