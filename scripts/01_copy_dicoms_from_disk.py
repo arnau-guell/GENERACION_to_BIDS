@@ -129,6 +129,12 @@ def main():
     temp_bids_dir = meta_func("bids_ws", "the path to the temporary workspace BIDS folder")  # Path to local BIDS directory
     bids_dir = meta_func("bids", "the path to the archive BIDS folder")  # Path to shared BIDS directory
 
+    # Determine processed subs in BIDS (archive)
+    bids = [s[4:] for s in os.listdir(bids_dir) if ((s[:4] == "sub-"))]
+
+    # Determine processed subs in BIDS (workspace)
+    bids_temp = [s[4:] for s in os.listdir(temp_bids_dir) if ((s[:4] == "sub-"))]
+
     local_ip = get_local_ip()
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
@@ -141,8 +147,8 @@ def main():
     todo_dicoms = {
                 sub for sub in subs_in_disk
                 if sub not in os.listdir(dicoms_dir)
-                and re.sub(r'[^a-zA-Z0-9]', '', sub) not in os.listdir(bids_dir)
-                and re.sub(r'[^a-zA-Z0-9]', '', sub) not in os.listdir(temp_bids_dir)
+                and re.sub(r'[^a-zA-Z0-9]', '', sub) not in bids
+                and re.sub(r'[^a-zA-Z0-9]', '', sub) not in bids_temp
                 }
     
     copy_files(sftp, todo_dicoms, local_dicoms_dir, dicoms_dir)

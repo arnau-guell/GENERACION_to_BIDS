@@ -9,6 +9,7 @@ import datetime
 import shutil
 import re
 from pathlib import Path
+import subprocess
 
 # Import meta functions
 
@@ -95,8 +96,8 @@ def generate_dicom_sub_list(dicoms_path, bids_path, temp_bids_path):
         # Identify subjects needing processing
         todo_dicoms = {
                         sub for sub in dicoms_folders
-                        if re.sub(r'[^a-zA-Z0-9]', '', sub) not in os.listdir(bids)
-                        and re.sub(r'[^a-zA-Z0-9]', '', sub) not in os.listdir(bids_temp)
+                        if re.sub(r'[^a-zA-Z0-9]', '', sub) not in bids
+                        and re.sub(r'[^a-zA-Z0-9]', '', sub) not in bids_temp
                       }
 
     elif manual_list == "Y":
@@ -139,7 +140,8 @@ def delete_scans_events(base_path, glob_pattern, delete_flag, info_msg, warn_nam
             f"No deletion of {warn_name} files was done."
         )
 
-def run_heudiconv(todo_dicoms, temp_bids_path, dicoms_path, heuristic_file_path):
+def run_heudiconv(todo_dicoms, temp_bids_path, dicoms_path, heuristic_file_path, logs_path):
+    commands = []
     for subj in todo_dicoms:
         try:
             subj_clean = re.sub(r'[^a-zA-Z0-9]', '', subj)
@@ -151,9 +153,9 @@ def run_heudiconv(todo_dicoms, temp_bids_path, dicoms_path, heuristic_file_path)
             # Heuristic must have keys like t1w=create_key('sub-{subject}/anat/sub-{subject}_run-{item:02d}_T1w')        
             # check: Subj folder must be empty
             if not subdir_list:
-                print(f"Starting subject {subj} conversion")
+                print(f"Queuing subject {subj} conversion")
                 command = "heudiconv -d "+ os.path.join(dicoms_path, "{subject}", "*", "*", "*", "*", "*") + " -o "+ temp_bids_path +" -f "+ heuristic_file_path +" -s "+ subj +" -c dcm2niix -b --minmeta --overwrite --grouping custom"
-                os.system(command)
+                commands.append(command)
             else:
                 with open(os.path.join(temp_bids_path, "error_heudiconv.txt"), "a") as f:
                     print(f"WARNING: Subject {subj} was previously processed and will be skipped. Logged in error_heudiconv.txt")
@@ -168,6 +170,36 @@ def run_heudiconv(todo_dicoms, temp_bids_path, dicoms_path, heuristic_file_path)
             except Exception as err:
                 print(f"ERROR: Could not log error for subject {subj}: {err}")
             continue
+    
+    if not commands:
+        print("No subjects to process.")
+        return
+    
+    n = len(commands)
+    commands_bash = "\n".join(f'  [{i+1}]="{cmd}"' for i, cmd in enumerate(commands))
+
+    slurm_script = f"""#!/bin/bash
+#SBATCH --job-name=heudiconv
+#SBATCH --output={logs_path}/sub_{subj}.out
+#SBATCH --error={logs_path}/sub_{subj}.err
+#SBATCH --partition=batch
+#SBATCH --cpus-per-task=8
+#SBATCH --mem=12G
+#SBATCH --array=1-{n}
+#SBATCH --time=24:00:00
+
+declare -A COMMANDS=(
+{commands_bash}
+)
+
+CMD=${{COMMANDS[${{SLURM_ARRAY_TASK_ID}}]}}
+echo "Task ${{SLURM_ARRAY_TASK_ID}} running: $CMD"
+eval "$CMD"
+"""
+    result = subprocess.run(["sbatch"], input=slurm_script, text=True, capture_output=True)
+    print(result.stdout)  # e.g. "Submitted batch job 12345"
+    if result.returncode != 0:
+        print("Error:", result.stderr)
 
 def main():
     # Input paths
@@ -176,6 +208,7 @@ def main():
     bids_dir = meta_func("bids", "the path to the archive BIDS folder")  # Path to shared BIDS directory
     temp_bids_dir = meta_func("bids_ws", "the path to the temporary workspace BIDS folder")  # Path to local BIDS directory
     heuristic_fn = meta_func("heuristic", "your heuristic file path") # Path to heuristic file 
+    log_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "output", "slurm_logs")
 
     # Dynamically load and execute a heuristic module to access configuration settings for processing
     heuristic_module_name = os.path.basename(heuristic_fn).split('.')[0]
@@ -189,7 +222,7 @@ def main():
     todo_dicoms = generate_dicom_sub_list(dicoms_dir, bids_dir, temp_bids_dir)
 
     # Heudiconv run
-    run_heudiconv(todo_dicoms, temp_bids_dir, dicoms_dir, heuristic_fn)
+    run_heudiconv(todo_dicoms, temp_bids_dir, dicoms_dir, heuristic_fn, log_dir)
 
     # .bidsignore file in case error_heudiconv.txt is created
     if os.path.exists(os.path.join(temp_bids_dir, "error_heudiconv.txt")):

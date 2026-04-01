@@ -1,5 +1,5 @@
-output/meta.json
+output/*
 git check-ignore -v slurm-*
 *.pyc
 .DS_Store
-*slurm-*
+*slurm*
