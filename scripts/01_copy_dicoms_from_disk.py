@@ -140,9 +140,9 @@ def main():
 
     todo_dicoms = {
                 sub for sub in subs_in_disk
-                if sub not in dicoms_dir
-                and re.sub(r'[^a-zA-Z0-9]', '', sub) not in bids_dir
-                and re.sub(r'[^a-zA-Z0-9]', '', sub) not in temp_bids_dir
+                if sub not in os.listdir(dicoms_dir)
+                and re.sub(r'[^a-zA-Z0-9]', '', sub) not in os.listdir(bids_dir)
+                and re.sub(r'[^a-zA-Z0-9]', '', sub) not in os.listdir(temp_bids_dir)
                 }
     
     copy_files(sftp, todo_dicoms, local_dicoms_dir, dicoms_dir)

@@ -11,7 +11,7 @@ import pandas as pd
 
 spec = importlib.util.spec_from_file_location(
     "copy_dicoms_from_disk",
-    os.path.join(os.path.dirname(os.path.dirname(__file__)), "01_copy_dicoms_from_disk.py")
+    os.path.join(os.path.dirname(os.path.dirname(__file__)), "scripts", "01_copy_dicoms_from_disk.py")
 )
 mod = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(mod)
@@ -121,5 +121,5 @@ else:
                       header=True, index=False, na_rep="n/a")
 
 # remove local_bids_path tree
-os.system(f"rm -rf {local_bids_path}/*")
+os.system(f"rm -rf {local_bids_path}")
 print(local_bids_path + " local BIDS directory was successfully removed")

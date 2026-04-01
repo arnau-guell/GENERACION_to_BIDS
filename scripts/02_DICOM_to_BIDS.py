@@ -14,7 +14,7 @@ from pathlib import Path
 
 spec = importlib.util.spec_from_file_location(
     "copy_dicoms_from_disk",
-    os.path.join(os.path.dirname(os.path.dirname(__file__)), "01_copy_dicoms_from_disk.py")
+    os.path.join(os.path.dirname(os.path.dirname(__file__)), "scripts", "01_copy_dicoms_from_disk.py")
 )
 mod = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(mod)
@@ -95,8 +95,8 @@ def generate_dicom_sub_list(dicoms_path, bids_path, temp_bids_path):
         # Identify subjects needing processing
         todo_dicoms = {
                         sub for sub in dicoms_folders
-                        if re.sub(r'[^a-zA-Z0-9]', '', sub) not in bids
-                        and re.sub(r'[^a-zA-Z0-9]', '', sub) not in bids_temp
+                        if re.sub(r'[^a-zA-Z0-9]', '', sub) not in os.listdir(bids)
+                        and re.sub(r'[^a-zA-Z0-9]', '', sub) not in os.listdir(bids_temp)
                       }
 
     elif manual_list == "Y":
