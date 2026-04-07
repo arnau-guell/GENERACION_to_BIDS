@@ -115,7 +115,7 @@ def generate_dicom_sub_list(dicoms_path, bids_path, temp_bids_path):
             }
 
         dicoms_overlap1 = overlap_dicom_bids(dicoms_folders, bids_path, bids)
-        dicoms_overlap2 = overlap_dicom_bids(dicoms_overlap1, bids_path, bids_temp, msg="temporary ")
+        dicoms_overlap2 = overlap_dicom_bids(dicoms_overlap1, temp_bids_path, bids_temp, msg="temporary ")
         todo_dicoms = dicoms_overlap2
 
     todo_dicoms = sorted(todo_dicoms)
