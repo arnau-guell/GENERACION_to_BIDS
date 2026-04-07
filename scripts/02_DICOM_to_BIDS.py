@@ -36,7 +36,7 @@ def overlap_dicom_bids(dicom_list, bids_path, bids_list, msg=""):
     with the temporary and archive BIDS directories. Asks if an overwriting is desired."""
 
     # Identify subjects that do not need processing
-    intersection_bids_list = dicom_list.intersection(bids_list)
+    intersection_bids_list = dicom_list.intersection(set(bids_list))
     
     # If there are no subjects in both dicoms_folders and bids_path
     if not intersection_bids_list:                                             
@@ -110,7 +110,9 @@ def generate_dicom_sub_list(dicoms_path, bids_path, temp_bids_path):
                 if line.strip()
             }
         
-        dicoms_overlap1 = overlap_dicom_bids(dicoms_folders, bids_path, bids)
+        dicoms_formatted = {re.sub(r'[^a-zA-Z0-9]', '', sub) for sub in dicoms_folders}
+
+        dicoms_overlap1 = overlap_dicom_bids(dicoms_formatted, bids_path, bids)
         dicoms_overlap2 = overlap_dicom_bids(dicoms_overlap1, bids_path, bids_temp, msg="temporary ")
         todo_dicoms = dicoms_overlap2
 
