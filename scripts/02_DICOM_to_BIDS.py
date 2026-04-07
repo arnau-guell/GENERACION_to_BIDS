@@ -180,8 +180,8 @@ def run_heudiconv(todo_dicoms, temp_bids_path, dicoms_path, heuristic_file_path,
 
     slurm_script = f"""#!/bin/bash
 #SBATCH --job-name=heudiconv
-#SBATCH --output={logs_path}/sub_{subj}.out
-#SBATCH --error={logs_path}/sub_{subj}.err
+#SBATCH --output={logs_path}/sub_{subj}_nipype.log
+#SBATCH --error={logs_path}/sub_{subj}_heudiconv.log
 #SBATCH --partition=batch
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=12G
