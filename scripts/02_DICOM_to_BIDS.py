@@ -140,6 +140,29 @@ def delete_scans_events(base_path, glob_pattern, delete_flag, info_msg, warn_nam
             f"No deletion of {warn_name} files was done."
         )
 
+def get_dicom_pattern(dicoms_path, subj):
+    """Detect the correct DICOM directory depth for a subject."""
+    subj_path = Path(dicoms_path) / subj
+    
+    if not subj_path.exists():
+        return os.path.join(dicoms_path, "{subject}", "*", "*", "*", "*", "*")
+    
+    # Check for DICOM files at different depths (try 6 to 2 wildcards)
+    for depth in [6, 5, 4, 3, 2]:
+        pattern_parts = [dicoms_path, "{subject}"] + ["*"] * depth
+        test_pattern = os.path.join(*pattern_parts)
+        test_path = test_pattern.replace("{subject}", subj)
+        
+        # Use pathlib to check if files exist at this depth
+        parent = Path(test_path.split("*")[0]).parent
+        if parent.exists():
+            files = list(parent.glob(test_path.replace(str(parent), "").lstrip("/")))
+            if files:
+                return os.path.join(*pattern_parts)
+    
+    # Default to 5 wildcards if nothing found
+    return os.path.join(dicoms_path, "{subject}", "*", "*", "*", "*", "*")
+
 def run_heudiconv(todo_dicoms, temp_bids_path, dicoms_path, heuristic_file_path, logs_path):
     commands = []
     for subj in todo_dicoms:
@@ -154,7 +177,8 @@ def run_heudiconv(todo_dicoms, temp_bids_path, dicoms_path, heuristic_file_path,
             # check: Subj folder must be empty
             if not subdir_list:
                 print(f"Queuing subject {subj} conversion")
-                command = "heudiconv -d "+ os.path.join(dicoms_path, "{subject}", "*", "*", "*", "*", "*") + " -o "+ temp_bids_path +" -f "+ heuristic_file_path +" -s "+ subj +" -c dcm2niix -b --minmeta --overwrite --grouping custom"
+                dicom_pattern = get_dicom_pattern(dicoms_path, subj)
+                command = "heudiconv -d "+ dicom_pattern + " -o "+ temp_bids_path +" -f "+ heuristic_file_path +" -s "+ subj +" -c dcm2niix -b --minmeta --overwrite --grouping custom"
                 commands.append(command)
             else:
                 with open(os.path.join(temp_bids_path, "error_heudiconv.txt"), "a") as f:
