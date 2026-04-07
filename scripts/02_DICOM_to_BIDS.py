@@ -114,6 +114,8 @@ def generate_dicom_sub_list(dicoms_path, bids_path, temp_bids_path):
         dicoms_overlap2 = overlap_dicom_bids(dicoms_overlap1, bids_path, bids_temp, msg="temporary ")
         todo_dicoms = dicoms_overlap2
 
+    todo_dicoms = sorted(todo_dicoms)
+
     # Print the list of subjects to be processed
     print("Subjects to be processed:", todo_dicoms)
 
@@ -206,8 +208,8 @@ def run_heudiconv(todo_dicoms, temp_bids_path, dicoms_path, heuristic_file_path,
 
     slurm_script = f"""#!/bin/bash
 #SBATCH --job-name=heudiconv
-#SBATCH --output={logs_path}/sub_{subj}_nipype.log
-#SBATCH --error={logs_path}/sub_{subj}_heudiconv.log
+#SBATCH --output={logs_path}/slurm_%A_%a_nipype.log
+#SBATCH --error={logs_path}/slurm_%A_%a_heudiconv.log
 #SBATCH --partition=batch
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=12G
