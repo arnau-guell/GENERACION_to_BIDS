@@ -178,6 +178,8 @@ def run_heudiconv(todo_dicoms, temp_bids_path, dicoms_path, heuristic_file_path,
     n = len(commands)
     commands_bash = "\n".join(f'  [{i+1}]="{cmd}"' for i, cmd in enumerate(commands))
 
+    os.makedirs(os.path.dirname(logs_path), exist_ok=True)
+
     slurm_script = f"""#!/bin/bash
 #SBATCH --job-name=heudiconv
 #SBATCH --output={logs_path}/sub_{subj}_nipype.log

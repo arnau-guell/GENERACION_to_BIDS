@@ -19,6 +19,7 @@ json_meta = os.path.join(root_dir, "output", "meta.json")
 def meta_create():
     '''This function creates an empty meta.json file in the output folder'''
     if os.path.isfile(json_meta) == False:
+        os.makedirs(os.path.dirname(json_meta), exist_ok=True)
         empty_dict = {
                       "local_user": "",
                       "local_dicom": "",
