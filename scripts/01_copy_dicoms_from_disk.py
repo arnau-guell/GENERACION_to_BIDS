@@ -86,19 +86,34 @@ def get_local_ip():
 def sftp_recursive_copy(sftp, src_path, dst_path):
     """Recursively copy a directory from the local machine to this workstation via SFTP."""
     os.makedirs(dst_path, exist_ok=True)
-    for entry in sftp.listdir_attr(src_path):
-        src_entry = src_path + '/' + entry.filename
-        dst_entry = os.path.join(dst_path, entry.filename)
-        if stat.S_ISDIR(entry.st_mode):
-            sftp_recursive_copy(sftp, src_entry, dst_entry)
-        else:
-            size = entry.st_size
-            print(f"  Copying {entry.filename} ({size / 1024 / 1024:.1f} MB)...")
-            def progress(transferred, total, filename=entry.filename):
-                pct = (transferred / total) * 100
-                print(f"  {filename}: {pct:.1f}%", end='\r')
-            sftp.get(src_entry, dst_entry, callback=progress)
-            print()
+    
+    # Count total files recursively first
+    def count_files_recursive(sftp, path):
+        count = 0
+        for entry in sftp.listdir_attr(path):
+            if stat.S_ISDIR(entry.st_mode):
+                count += count_files_recursive(sftp, path + '/' + entry.filename)
+            else:
+                count += 1
+        return count
+    
+    total_files = count_files_recursive(sftp, src_path)
+    copied_files = [0]  # Use list to allow modification in nested function
+    
+    def copy_recursive(sftp, src, dst):
+        os.makedirs(dst, exist_ok=True)
+        for entry in sftp.listdir_attr(src):
+            src_entry = src + '/' + entry.filename
+            dst_entry = os.path.join(dst, entry.filename)
+            if stat.S_ISDIR(entry.st_mode):
+                copy_recursive(sftp, src_entry, dst_entry)
+            else:
+                sftp.get(src_entry, dst_entry)
+                copied_files[0] += 1
+                print(f"  Copying: {copied_files[0]}/{total_files} files", end='\r', flush=True)
+    
+    copy_recursive(sftp, src_path, dst_path)
+    print(f"  Copied {copied_files[0]}/{total_files} files")
 
 def copy_files(sftp, dicom_list, src_dicoms_dir, dst_dicoms_dir):
     """
