@@ -7,8 +7,9 @@ This pipeline allows you to go from raw DICOMs directly from the scanner to BIDS
 ## Table of Contents
 
 - [Step-by-Step Workflow](#step-by-step-workflow)
-  - [Install the virtual environment](#install-the-virtual-environment)
-  - [1. Convert to BIDS](#1-convert-to-bids)
+  - [Install the virtual environment](#0-install-the-virtual-environment)
+  - [1. Copy DICOM files from the hard disk to the workstation](#1-copy-dicom-files-from-the-hard-disk-to-the-workstation)
+  - [2. Convert to BIDS](#2-convert-to-bids)
 - [License](#license)
 
 ---
