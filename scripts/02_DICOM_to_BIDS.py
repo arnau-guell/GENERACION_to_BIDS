@@ -10,6 +10,7 @@ import shutil
 import re
 from pathlib import Path
 import subprocess
+import sys
 
 # Import meta functions
 
@@ -144,6 +145,9 @@ def delete_scans_events(base_path, glob_pattern, delete_flag, info_msg, warn_nam
             f.unlink()
         print(f"INFO: {info_msg}")
 
+        if glob_pattern == "sub-*/*scans*":
+            os.remove(os.path.join(base_path, "scans.json"))
+
     elif delete_flag is False:
         print(f"INFO: {warn_name} files were left in place")
 
@@ -237,8 +241,43 @@ eval "$CMD"
 """
     result = subprocess.run(["sbatch"], input=slurm_script, text=True, capture_output=True)
     print(result.stdout)  # e.g. "Submitted batch job 12345"
+
     if result.returncode != 0:
         print("Error:", result.stderr)
+        return None
+    
+    job_id = result.stdout.strip().split()[-1]
+    return job_id
+
+def run_cleanup(temp_bids_path, delete_scans, delete_events):
+
+    # .bidsignore file in case error_heudiconv.txt is created
+    if os.path.exists(os.path.join(temp_bids_path, "error_heudiconv.txt")):
+        if not os.path.exists(os.path.join(temp_bids_path, ".bidsignore")):
+            with open(os.path.join(temp_bids_path, ".bidsignore"), "a") as f:
+                f.write("error_heudiconv.txt\n")
+        else:
+            with open(os.path.join(temp_bids_path, ".bidsignore"), "r+") as f:
+                lines = {line.rstrip() for line in f}
+                if "error_heudiconv.txt" not in lines:
+                    f.write("\nerror_heudiconv.txt\n")   
+
+    # Delete *_scans.tsv and *_events.tsv if needed
+    delete_scans_events(
+        temp_bids_path,
+        "sub-*/*scans*",
+        delete_scans,
+        "Deleting all *_scans.tsv files from each subject folder",
+        "*_scans.tsv"
+    )
+
+    delete_scans_events(
+        temp_bids_path,
+        "sub-*/func/*_events.tsv",
+        delete_events,
+        "Deleting all *_events.tsv files from each subject/func folder",
+        "*_events.tsv"
+    )
 
 def main():
     # Input paths
@@ -249,47 +288,48 @@ def main():
     heuristic_fn = meta_func("heuristic", "your heuristic file path") # Path to heuristic file 
     log_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "output", "slurm_logs")
 
-    # Dynamically load and execute a heuristic module to access configuration settings for processing
-    heuristic_module_name = os.path.basename(heuristic_fn).split('.')[0]
-    spec = importlib.util.spec_from_file_location(heuristic_module_name, heuristic_fn)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-
-    delete_scans = module.delete_scans
-    delete_events = module.delete_events
-    
     todo_dicoms = generate_dicom_sub_list(dicoms_dir, bids_dir, temp_bids_dir)
 
     # Heudiconv run
-    run_heudiconv(todo_dicoms, temp_bids_dir, dicoms_dir, heuristic_fn, log_dir)
+    job_id = run_heudiconv(todo_dicoms, temp_bids_dir, dicoms_dir, heuristic_fn, log_dir)
 
-    # .bidsignore file in case error_heudiconv.txt is created
-    if os.path.exists(os.path.join(temp_bids_dir, "error_heudiconv.txt")):
-        if not os.path.exists(os.path.join(temp_bids_dir, ".bidsignore")):
-            with open(os.path.join(temp_bids_dir, ".bidsignore"), "a") as f:
-                f.write("error_heudiconv.txt\n")
-        else:
-            with open(os.path.join(temp_bids_dir, ".bidsignore"), "r+") as f:
-                lines = {line.rstrip() for line in f}
-                if "error_heudiconv.txt" not in lines:
-                    f.write("\nerror_heudiconv.txt\n")   
+    if job_id:
+        cleanup_script = f"""#!/bin/bash
+#SBATCH --job-name=heudiconv_cleanup
+#SBATCH --output={log_dir}/cleanup_%j.log
+#SBATCH --error={log_dir}/cleanup_%j.err
+#SBATCH --time=01:00:00
 
-    # Delete *_scans.tsv and *_events.tsv if needed
-    delete_scans_events(
-        temp_bids_dir,
-        "sub-*/*scans*",
-        delete_scans,
-        "Deleting all *_scans.tsv files from each subject folder",
-        "*_scans.tsv"
-    )
+source activate generacion-to-bids
 
-    delete_scans_events(
-        temp_bids_dir,
-        "sub-*/func/*_events.tsv",
-        delete_events,
-        "Deleting all *_events.tsv files from each subject/func folder",
-        "*_events.tsv"
-    )
+python {os.path.abspath(__file__)} cleanup "{temp_bids_dir}" "{heuristic_fn}"
+"""
+        result = subprocess.run(
+            ["sbatch", f"--dependency=afterok:{job_id}"],
+            input=cleanup_script,
+            text=True,
+            capture_output=True
+        )
+
+        print(result.stdout)
+        if result.returncode != 0:
+            print(result.stderr)
 
 if __name__ == '__main__':
-    main()
+
+    if len(sys.argv) > 1 and sys.argv[1] == "cleanup":
+        temp_bids_dir = sys.argv[2]
+        heuristic_fn = sys.argv[3]
+
+    # Dynamically load and execute a heuristic module to access configuration settings for processing
+        heuristic_module_name = os.path.basename(heuristic_fn).split('.')[0]
+        spec = importlib.util.spec_from_file_location(heuristic_module_name, heuristic_fn)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+
+        delete_scans = module.delete_scans
+        delete_events = module.delete_events
+
+        run_cleanup(temp_bids_dir, delete_scans, delete_events)
+    else:
+        main()

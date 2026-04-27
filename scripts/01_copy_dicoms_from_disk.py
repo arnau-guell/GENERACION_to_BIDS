@@ -5,7 +5,6 @@
 
 import os
 import json
-import subprocess
 import re
 import paramiko
 import getpass
