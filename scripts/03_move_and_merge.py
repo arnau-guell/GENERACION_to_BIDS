@@ -8,6 +8,7 @@ import importlib.util
 import warnings
 from pathlib import Path
 import pandas as pd
+import re
 
 spec = importlib.util.spec_from_file_location(
     "copy_dicoms_from_disk",
@@ -106,17 +107,31 @@ merge_files(os.path.join(local_bids_path,'.bidsignore'), os.path.join(destinatio
 merge_files(os.path.join(local_bids_path,'error_heudiconv.txt'), os.path.join(destination_bids_path,'error_heudiconv.txt'))
 
 # merge participants.tsv using pandas dataframes
+
+def update_group_column(df):    
+    for i in range(len(df)):
+        sub_id = df.loc[i, 'participant_id']
+        match = re.search(r'[A-Za-z]+$', sub_id)
+        if match:
+            group_true = match.group(0)
+            group_tsv = df.loc[i, 'group']
+            if group_true != group_tsv:
+                df.loc[i, 'group'] = group_true
+    return df
+
 df_participants_src = pd.read_csv(os.path.join(local_bids_path,"participants.tsv"), sep='\t')
 
 if os.path.exists(os.path.join(destination_bids_path,"participants.tsv")) == True:   
     df_participants_des = pd.read_csv(os.path.join(destination_bids_path,"participants.tsv"), sep='\t')
     new_participants_des = pd.concat((df_participants_des, df_participants_src)).groupby('participant_id').first().reset_index().sort_values(by=["participant_id"])
+    new_participants_des = update_group_column(new_participants_des)
     new_participants_des.to_csv(os.path.join(destination_bids_path,"participants.tsv"), sep="\t",
                       header=True, index=False, na_rep="n/a")
     if df_participants_des.equals(new_participants_des) == False:
         print("participants.tsv was successfully updated")
 else:
     new_participants_des = df_participants_src
+    new_participants_des = update_group_column(new_participants_des)
     new_participants_des.to_csv(os.path.join(destination_bids_path,"participants.tsv"), sep="\t",
                       header=True, index=False, na_rep="n/a")
 
