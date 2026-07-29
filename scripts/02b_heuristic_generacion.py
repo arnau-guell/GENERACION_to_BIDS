@@ -3,8 +3,6 @@
 #######       PENLab Jan 2026        #######
 ############################################
 
-import os
-
 grouping = 'all'                   # change it to 'all' if Study Identifier UID error appears
 
 delete_scans = True
@@ -38,9 +36,12 @@ def infotodict(seqinfo):
     selfvowel_bold=create_key('sub-{subject}/func/sub-{subject}_task-selfvowel_run-{item:02d}_bold')
     nback_bold=create_key('sub-{subject}/func/sub-{subject}_task-nback_run-{item:02d}_bold')
 
+    func_fmap_ap=create_key('sub-{subject}/fmap/sub-{subject}_acq-func_dir-AP_run-{item:02d}_epi')
+    func_fmap_pa=create_key('sub-{subject}/fmap/sub-{subject}_acq-func_dir-PA_run-{item:02d}_epi')
+
     dwi=create_key('sub-{subject}/dwi/sub-{subject}_dir-AP_run-{item:02d}_dwi')
 
-    dwi_b0_pa=create_key('sub-{subject}/fmap/sub-{subject}_dir-PA_acq-DWI_run-{item:02d}_epi')
+    dwi_b0_pa=create_key('sub-{subject}/fmap/sub-{subject}_acq-dwi_dir-PA_run-{item:02d}_epi')
 
     # dictionary: list of DICOMs for each BIDS file
     info =  {
@@ -50,6 +51,8 @@ def infotodict(seqinfo):
                     multisens_bold:[],
                     selfvowel_bold:[],
                     nback_bold:[],
+                    func_fmap_ap:[],
+                    func_fmap_pa:[],
                     dwi:[],
                     dwi_b0_pa:[],
              }
@@ -82,7 +85,11 @@ def infotodict(seqinfo):
 
         #fmap
         if s.protocol_name=='2_B0_PA':
-            info[dwi_b0_pa].append(s.series_id)     
+            info[dwi_b0_pa].append(s.series_id)
+        elif 'SPECHO_GFM_A-P' in s.protocol_name:
+            info[func_fmap_ap].append(s.series_id)
+        elif 'SPECHO_GFM_P-A' in s.protocol_name:
+            info[func_fmap_pa].append(s.series_id)
 
     return info
 
