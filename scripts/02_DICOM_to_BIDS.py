@@ -146,7 +146,10 @@ def delete_scans_events(base_path, glob_pattern, delete_flag, info_msg, warn_nam
         print(f"INFO: {info_msg}")
 
         if glob_pattern == "sub-*/*scans*":
-            os.remove(os.path.join(base_path, "scans.json"))
+            scans_json = Path(base_path) / "scans.json"
+            if scans_json.exists():
+                scans_json.unlink()
+                print(f"INFO: Deleted scans.json file from {base_path}")
 
     elif delete_flag is False:
         print(f"INFO: {warn_name} files were left in place")
