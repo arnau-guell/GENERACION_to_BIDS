@@ -86,9 +86,9 @@ def infotodict(seqinfo):
         #fmap
         if s.protocol_name=='2_B0_PA':
             info[dwi_b0_pa].append(s.series_id)
-        elif 'SPECHO_GFM_A-P' in s.protocol_name:
+        elif 'SPECHO GFM A-P' in s.protocol_name:
             info[func_fmap_ap].append(s.series_id)
-        elif 'SPECHO_GFM_P-A' in s.protocol_name:
+        elif 'SPECHO GFM P-A' in s.protocol_name:
             info[func_fmap_pa].append(s.series_id)
 
     return info
